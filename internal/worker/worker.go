@@ -11,16 +11,16 @@ import (
 )
 
 /*
-	Worker — главный фоновый процесс.
+Worker — главный фоновый процесс.
 
-	Он:
-	1. Каждые N секунд читает список личных диалогов.
-	2. Берёт последние сообщения.
-	3. Игнорирует свои сообщения.
-	4. Проверяет, обрабатывали ли уже сообщение.
-	5. Ищет правило по ключевым словам.
-	6. Выполняет действие.
-	7. Сохраняет результат в MySQL.
+Он:
+1. Каждые N секунд читает список личных диалогов.
+2. Берёт последние сообщения.
+3. Игнорирует свои сообщения.
+4. Проверяет, обрабатывали ли уже сообщение.
+5. Ищет правило по ключевым словам.
+6. Выполняет действие.
+7. Сохраняет результат в MySQL.
 */
 type Worker struct {
 	bitrixClient          *bitrix.Client
@@ -49,7 +49,7 @@ func NewWorker(
 }
 
 /*
-	Run запускает бесконечный цикл worker-а.
+Run запускает бесконечный цикл worker-а.
 */
 func (w *Worker) Run() {
 	log.Println("worker started")
@@ -67,19 +67,20 @@ func (w *Worker) Run() {
 }
 
 /*
-	ProcessOnce — один проход обработки.
+ProcessOnce — один проход обработки.
 
-	Вынесено отдельно, чтобы потом было удобно:
-	- тестировать;
-	- запускать вручную;
-	- вызывать из debug endpoint.
+Вынесено отдельно, чтобы потом было удобно:
+- тестировать;
+- запускать вручную;
+- вызывать из debug endpoint.
 */
 func (w *Worker) ProcessOnce() error {
 	/*
-		Берём только unread диалоги.
-		Так меньше нагрузка на Bitrix24.
+		Берём все recent-диалоги, а не только unread.
+		Если чат открыт в Bitrix24, сообщение может стать прочитанным
+		до следующего polling-а. Повторы отсекаются через processed_messages.
 	*/
-	dialogs, err := w.bitrixClient.RecentList(true)
+	dialogs, err := w.bitrixClient.RecentList(false)
 	if err != nil {
 		return err
 	}
@@ -107,7 +108,7 @@ func (w *Worker) ProcessOnce() error {
 }
 
 /*
-	processDialog обрабатывает один диалог.
+processDialog обрабатывает один диалог.
 */
 func (w *Worker) processDialog(dialogID string, rules []storage.Rule) {
 	/*
@@ -126,7 +127,7 @@ func (w *Worker) processDialog(dialogID string, rules []storage.Rule) {
 }
 
 /*
-	processMessage обрабатывает одно сообщение.
+processMessage обрабатывает одно сообщение.
 */
 func (w *Worker) processMessage(dialogID string, msg bitrix.DialogMessage, rules []storage.Rule) {
 	if msg.ID == 0 {
