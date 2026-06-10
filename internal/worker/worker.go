@@ -96,7 +96,7 @@ func (w *Worker) ProcessOnce() error {
 	}
 
 	for _, dialog := range dialogs {
-		dialogID := dialog.ID
+		dialogID := dialog.ID.String()
 		if dialogID == "" {
 			continue
 		}

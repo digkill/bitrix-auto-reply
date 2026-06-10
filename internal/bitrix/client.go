@@ -63,6 +63,33 @@ type APIResponse[T any] struct {
 }
 
 /*
+StringID — ID из Bitrix24, который в разных ответах может приходить
+как строкой, так и числом. Внутри приложения держим его строкой,
+потому что DIALOG_ID в REST-запросах тоже отправляется строкой.
+*/
+type StringID string
+
+func (id *StringID) UnmarshalJSON(data []byte) error {
+	var text string
+	if err := json.Unmarshal(data, &text); err == nil {
+		*id = StringID(text)
+		return nil
+	}
+
+	var number json.Number
+	if err := json.Unmarshal(data, &number); err == nil {
+		*id = StringID(number.String())
+		return nil
+	}
+
+	return fmt.Errorf("invalid string id: %s", string(data))
+}
+
+func (id StringID) String() string {
+	return string(id)
+}
+
+/*
 RecentListRequest — параметры для im.recent.list.
 
 UNREAD_ONLY=Y — брать только непрочитанные.
@@ -89,7 +116,7 @@ type RecentListResult struct {
 RecentItem — один диалог из списка последних диалогов.
 */
 type RecentItem struct {
-	ID      string        `json:"id"`
+	ID      StringID      `json:"id"`
 	Type    string        `json:"type"`
 	Message RecentMessage `json:"message"`
 	User    RecentUser    `json:"user"`
