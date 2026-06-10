@@ -1,0 +1,23 @@
+[Unit]
+Description=Bitrix24 auto reply worker and admin UI
+After=network-online.target mysql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=bitrix-auto-reply
+Group=bitrix-auto-reply
+WorkingDirectory=/opt/bitrix-auto-reply
+EnvironmentFile=/etc/bitrix-auto-reply/bitrix-auto-reply.env
+ExecStart=/opt/bitrix-auto-reply/bitrix-auto-reply
+Restart=on-failure
+RestartSec=5s
+KillSignal=SIGTERM
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
