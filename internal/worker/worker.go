@@ -1,7 +1,9 @@
 package worker
 
 import (
+	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/digkill/bitrix-auto-reply/internal/actions"
@@ -14,13 +16,14 @@ import (
 Worker — главный фоновый процесс.
 
 Он:
-1. Каждые N секунд читает список личных диалогов.
-2. Берёт последние сообщения.
-3. Игнорирует свои сообщения.
-4. Проверяет, обрабатывали ли уже сообщение.
-5. Ищет правило по ключевым словам.
-6. Выполняет действие.
-7. Сохраняет результат в MySQL.
+ 1. Каждые N секунд читает список диалогов.
+ 2. Берёт последние сообщения.
+ 3. Игнорирует свои сообщения.
+ 4. В групповых чатах отвечает только на упоминание пользователя бота.
+ 5. Проверяет, обрабатывали ли уже сообщение.
+ 6. Ищет правило по ключевым словам.
+ 7. Выполняет действие.
+ 8. Сохраняет результат в MySQL.
 */
 type Worker struct {
 	bitrixClient          *bitrix.Client
@@ -101,7 +104,7 @@ func (w *Worker) ProcessOnce() error {
 			continue
 		}
 
-		w.processDialog(dialogID, rules)
+		w.processDialog(dialogID, dialog.Type, rules)
 	}
 
 	return nil
@@ -110,7 +113,7 @@ func (w *Worker) ProcessOnce() error {
 /*
 processDialog обрабатывает один диалог.
 */
-func (w *Worker) processDialog(dialogID string, rules []storage.Rule) {
+func (w *Worker) processDialog(dialogID string, dialogType string, rules []storage.Rule) {
 	/*
 		Берём последние 5 сообщений.
 		Можно увеличить до 10-20, если сообщения часто летят пачкой.
@@ -122,14 +125,14 @@ func (w *Worker) processDialog(dialogID string, rules []storage.Rule) {
 	}
 
 	for _, msg := range messages {
-		w.processMessage(dialogID, msg, rules)
+		w.processMessage(dialogID, dialogType, msg, rules)
 	}
 }
 
 /*
 processMessage обрабатывает одно сообщение.
 */
-func (w *Worker) processMessage(dialogID string, msg bitrix.DialogMessage, rules []storage.Rule) {
+func (w *Worker) processMessage(dialogID string, dialogType string, msg bitrix.DialogMessage, rules []storage.Rule) {
 	if msg.ID == 0 {
 		return
 	}
@@ -152,6 +155,14 @@ func (w *Worker) processMessage(dialogID string, msg bitrix.DialogMessage, rules
 	}
 
 	if processed {
+		return
+	}
+
+	if requiresMention(dialogType) && !mentionsUser(msg.Text, w.selfUserID) {
+		if err := w.store.SaveProcessed(msg.ID, dialogID, msg.AuthorID, msg.Text, "", nil); err != nil {
+			log.Printf("save non-mentioned chat message error: %v", err)
+		}
+
 		return
 	}
 
@@ -209,4 +220,19 @@ func (w *Worker) processMessage(dialogID string, msg bitrix.DialogMessage, rules
 		match.Rule.ID,
 		match.Rule.ActionType,
 	)
+}
+
+func requiresMention(dialogType string) bool {
+	return strings.ToLower(strings.TrimSpace(dialogType)) != "user"
+}
+
+func mentionsUser(text string, userID int64) bool {
+	if userID == 0 {
+		return false
+	}
+
+	normalizedText := strings.ToLower(text)
+	mention := fmt.Sprintf("[user=%d]", userID)
+
+	return strings.Contains(normalizedText, mention)
 }

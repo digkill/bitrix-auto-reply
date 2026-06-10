@@ -94,7 +94,7 @@ RecentListRequest — параметры для im.recent.list.
 
 UNREAD_ONLY=Y — брать только непрочитанные.
 SKIP_OPENLINES=Y — не брать открытые линии.
-SKIP_CHAT=Y — не брать групповые чаты, чтобы работать только с личкой.
+SKIP_CHAT=N — брать и личные диалоги, и групповые чаты.
 */
 type RecentListRequest struct {
 	UnreadOnly      string `json:"UNREAD_ONLY"`
@@ -189,9 +189,9 @@ type SendMessageRequest struct {
 /*
 RecentList получает список последних диалогов.
 
-В нашем случае это главный метод polling-а:
-каждые N секунд мы спрашиваем Bitrix24:
-"Есть ли новые личные сообщения?"
+	В нашем случае это главный метод polling-а:
+	каждые N секунд мы спрашиваем Bitrix24:
+	"Есть ли новые сообщения?"
 */
 func (c *Client) RecentList(onlyUnread bool) ([]RecentItem, error) {
 	unread := "N"
@@ -202,7 +202,7 @@ func (c *Client) RecentList(onlyUnread bool) ([]RecentItem, error) {
 	req := RecentListRequest{
 		UnreadOnly:      unread,
 		SkipOpenLines:   "Y",
-		SkipChat:        "Y",
+		SkipChat:        "N",
 		GetOriginalText: "Y",
 	}
 
